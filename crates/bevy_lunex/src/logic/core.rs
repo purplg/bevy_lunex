@@ -23,6 +23,14 @@ pub struct UiChangeEvent {
     pub value: String,
 }
 
+/// TODO
+#[derive(Event, Debug, Clone, PartialEq)]
+pub struct UiScrollEvent {
+    /// The targetted entity that was clicked on
+    pub target: Entity,
+    /// TODO
+    pub delta: Vec2,
+}
 
 // #=================#
 // #=== LISTENERS ===#
@@ -54,6 +62,35 @@ fn ui_click_emitter_system(mut events: EventReader<Pointer<Down>>, mut write: Ev
     }
 }
 
+/// TODO
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
+pub struct UiScrollEmitter {
+    pub target: Option<Entity>,
+}
+impl UiScrollEmitter {
+    /// The entity will create the event for itself and not other entities.
+    pub const SELF: UiScrollEmitter = UiScrollEmitter { target: None };
+    /// Specify the entity you want to create events for.
+    pub fn new(entity: Entity) -> Self {
+        UiScrollEmitter {
+            target: Some(entity),
+        }
+    }
+}
+fn ui_scroll_emitter_system(
+    mut events: EventReader<Pointer<Scroll>>,
+    mut write: EventWriter<UiScrollEvent>,
+    query: Query<(&UiScrollEmitter, Entity)>,
+) {
+    for event in events.read() {
+        if let Ok((emitter, entity)) = query.get(event.target) {
+            write.send(UiScrollEvent {
+                target: if let Some(e) = emitter.target { e } else { entity },
+                delta: event.delta,
+            });
+        }
+    }
+}
 
 
 #[derive(Component,  Clone, PartialEq, Eq)]
@@ -112,6 +149,8 @@ impl Plugin for CorePlugin {
             // Add our events
             .add_event::<UiClickEvent>()
             .add_systems(Update, ui_click_emitter_system.run_if(on_event::<Pointer<Down>>()))
+            .add_systems(Update, ui_scroll_emitter_system.run_if(on_event::<Pointer<Scroll>>()))
+            .add_event::<UiScrollEvent>()
             .add_event::<UiChangeEvent>()
 
             .add_systems(Update, on_ui_click_commands_system.run_if(on_event::<UiClickEvent>()))
